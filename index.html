@@ -934,6 +934,10 @@ h3 { margin: 22px 0 6px; font-size: 19px; font-weight: 800; }
 .mk-tab { position: absolute; left: 0; bottom: 0; min-width: 26px; height: 26px; padding: 0 6px; border-radius: 6px 6px 6px 0; display: grid; place-items: center; background: var(--signal); color: #fff; font: 800 15px/1 var(--font); box-shadow: inset 0 0 0 2px #fff, 0 3px 8px rgba(0, 0, 0, .4); }
 
 .mk-gate { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.mk-gate.below { flex-direction: column; width: 30px; gap: 3px; }
+.mk-gate.below .lb { text-align: center; }
+.mk-gate.below.r { align-items: flex-start; }
+.mk-gate.below.r .lb { text-align: left; }
 .mk-gate .ic { width: 30px; height: 30px; border-radius: 7px; background: var(--enamel); color: var(--board); display: grid; place-items: center; box-shadow: inset 0 0 0 2px var(--board), 0 3px 8px rgba(0, 0, 0, .35); }
 .mk-gate .ic svg { width: 20px; height: 20px; }
 .mk-gate .lb { font-size: 13.5px; font-weight: 800; color: #fff; text-shadow: 0 1px 3px rgba(0, 0, 0, .8), 0 0 8px rgba(16, 41, 31, .9); }
@@ -1338,6 +1342,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   });
 
   // alley names painted on the plan
+  var PAINTED = [];
   function longest(name) {
     var best = null, bl = 0;
     M.geo.alleys.forEach(function (a) { if (a.n !== name) return; var L0 = 0; for (var i = 1; i < a.c.length; i++) L0 += dist(a.c[i - 1], a.c[i]); if (L0 > bl) { bl = L0; best = a.c; } });
@@ -1350,13 +1355,13 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       if (acc + seg[i] >= want) {
         var t = (want - acc) / seg[i], a = coords[i], b = coords[i + 1], p = [a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])];
         var ang = bear(a, b) - 90; ang = norm(ang); if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
-        L.marker(p, { pane: 'labels', interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="lbl" style="position:absolute;transform:translate(-50%,-50%) rotate(' + ang.toFixed(1) + 'deg) translateY(-15px)">' + esc(text) + '</div>' }) }).addTo(map);
+        PAINTED.push({ len: total, mk: L.marker(p, { pane: 'labels', interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="lbl" style="position:absolute;transform:translate(-50%,-50%) rotate(' + ang.toFixed(1) + 'deg) translateY(-15px)">' + esc(text) + '</div>' }) }).addTo(map) });
         return;
       }
       acc += seg[i];
     }
   }
-  [['glowna', .78, 'Główna aleja'], ['drzewa', .66, 'Aleja z drzewami'], ['kolo', .42, 'Okrągła aleja'], ['poprzeczna', .32, 'Aleja poprzeczna'], ['skosna', .55, 'Aleja skośna']].forEach(function (l) {
+  [['glowna', .78, 'Główna aleja'], ['drzewa', .36, 'Aleja z drzewami'], ['kolo', .42, 'Okrągła aleja'], ['poprzeczna', .32, 'Aleja poprzeczna'], ['skosna', .55, 'Aleja skośna']].forEach(function (l) {
     var c = longest(l[0]); if (c) labelAlong(c, l[1], l[2]);
   });
   // streets: one label each, on the longest piece
@@ -1367,16 +1372,16 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       var c = s.coords, mid = Math.floor(c.length / 2), a = c[Math.max(0, mid - 1)], b = c[Math.min(c.length - 1, mid + 1)];
       var ang = norm(bear(a, b) - 90); if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
       var p = c[mid];
-      L.marker(p, { pane: 'labels', interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="lbl st" style="transform:translate(-50%,-140%) rotate(' + ang.toFixed(1) + 'deg);transform-origin:50% 140%;position:absolute">ul. ' + esc(s.name) + '</div>' }) }).addTo(map);
+      PAINTED.push({ len: 1e9, mk: L.marker(p, { pane: 'labels', interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [0, 0], html: '<div class="lbl st" style="transform:translate(-50%,-140%) rotate(' + ang.toFixed(1) + 'deg);transform-origin:50% 140%;position:absolute">ul. ' + esc(s.name) + '</div>' }) }).addTo(map) });
     });
   })();
 
   var gateMk = {};
   Object.keys(GATES).forEach(function (k) {
     var g = GATES[k];
-    gateMk[k] = L.marker(g.pos, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div class="mk-gate"><div class="ic">' + ICON.gate + '</div><div class="lb">' + esc(g.label) + '</div></div>' }) }).addTo(map);
+    gateMk[k] = L.marker(g.pos, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div class="mk-gate below' + (k === 'petla' ? ' r' : '') + '"><div class="ic">' + ICON.gate + '</div><div class="lb">' + esc(g.label) + '</div></div>' }) }).addTo(map);
   });
-  L.marker(M.geo.chapel, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div class="mk-gate"><div class="ic">' + ICON.chapel + '</div><div class="lb">Kaplica</div></div>' }) }).addTo(map);
+  var chapelMk = L.marker(M.geo.chapel, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [30, 30], iconAnchor: [15, 15], html: '<div class="mk-gate"><div class="ic">' + ICON.chapel + '</div><div class="lb">Kaplica</div></div>' }) }).addTo(map);
 
   var graveMk = {};
   GRAVES.forEach(function (g) {
@@ -1455,7 +1460,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   function pads() {
     var pr = plaque.getBoundingClientRect();
     if (WIDE.matches) { var sr = sheet.getBoundingClientRect(); return { tl: [sr.right + 28, 28], br: [150, 70] }; }
-    return { tl: [26, pr.bottom + 62], br: [96, sheet.getBoundingClientRect().height + 54] };
+    return { tl: [26, pr.bottom + 62], br: [96, sheet.getBoundingClientRect().height + 100] };
   }
   function fit(latlngs, maxZoom) {
     var p = pads();
@@ -1849,6 +1854,22 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     else if (/info/.test(h)) { showLegend(); showInfo(); }
     else showLegend();
   }
+  function declutter() {
+    var ppm = Math.pow(2, map.getZoom()) / PPM0, obs = [];
+    function add(el) { if (el) { var r = el.getBoundingClientRect(); if (r.width && r.height) obs.push(r); } }
+    GRAVES.forEach(function (g) { var el = graveMk[g.id].getElement(); add(el && el.querySelector('.pl')); });
+    Object.keys(gateMk).forEach(function (k) { var el = gateMk[k].getElement(); if (el) { add(el.querySelector('.ic')); add(el.querySelector('.lb')); } });
+    if (chapelMk.getElement()) { add(chapelMk.getElement().querySelector('.ic')); add(chapelMk.getElement().querySelector('.lb')); }
+    [ctrl, scaleEl, plaque].forEach(add);
+    PAINTED.forEach(function (l) {
+      var el = l.mk.getElement(), d = el && el.firstChild; if (!d) return;
+      d.style.visibility = 'visible';
+      var r = d.getBoundingClientRect(), hit = l.len * ppm < d.offsetWidth + 16;
+      for (var i = 0; !hit && i < obs.length; i++) { var o = obs[i]; hit = !(r.right < o.left || r.left > o.right || r.bottom < o.top || r.top > o.bottom); }
+      d.style.visibility = hit ? 'hidden' : 'visible';
+    });
+  }
+  map.on('zoomend moveend', function () { setTimeout(declutter, 0); });
   map.on('zoom zoomend', paintScale);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
   map.fitBounds(CEM_B, { animate: false });
