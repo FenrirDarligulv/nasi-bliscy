@@ -1,6 +1,6 @@
-﻿/* Keeps the map on the phone after the first visit, so it opens at the cemetery without signal.
+/* Keeps the map on the phone after the first visit, so it opens at the cemetery without signal.
    Cache first, refreshed in the background; bump CACHE when the page changes. */
-var CACHE = 'nasi-bliscy-v2';
+var CACHE = 'nasi-bliscy-v3';
 var ASSETS = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', function (e) {

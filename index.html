@@ -814,11 +814,11 @@ body.sheet-tall .ctrl { display: none; }
 .legend li { border-bottom: 1px solid var(--rule); }
 .legend button {
   display: grid; grid-template-columns: 46px 1fr auto; gap: 14px; align-items: center; width: 100%;
-  min-height: 70px; padding: 10px 2px; background: none; border: 0; text-align: left; cursor: pointer;
+  min-height: 64px; padding: 8px 2px; background: none; border: 0; text-align: left; cursor: pointer;
 }
 .legend button:active { background: var(--enamel-2); }
-.legend .name { display: block; font-size: 19.5px; font-weight: 800; line-height: 1.2; }
-.legend .where { display: block; font-size: 15.5px; color: var(--ink-2); margin-top: 2px; }
+.legend .name { display: block; font-size: 19px; font-weight: 800; line-height: 1.18; }
+.legend .where { display: block; font-size: 15px; line-height: 1.35; color: var(--ink-2); margin-top: 2px; }
 .legend .mins { text-align: right; font-size: 20px; font-weight: 800; color: var(--board); line-height: 1.1; white-space: nowrap; }
 .legend .mins small { display: block; font-size: 14px; font-weight: 400; color: var(--ink-2); }
 
@@ -1129,7 +1129,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       arrive: '3. rząd od płotu, 4. grób od strony drzew. Na nagrobku nazwisko Marchut.'
     },
     {
-      id: 4, title: 'Grób od strony Baranów', where: 'W środku dużego koła, między iglakami',
+      id: 4, title: 'Grób od strony Baranów', where: 'W środku koła, między iglakami',
       pos: [52.787509, 18.282054], size: [1.0, 2.1], gate: 'kaplica', patch: 'p4',
       photos: [],
       ledger: [
@@ -1457,8 +1457,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   if (window.ResizeObserver) new ResizeObserver(layout).observe(sheet); else window.addEventListener('resize', layout);
   if (WIDE.addEventListener) WIDE.addEventListener('change', layout);
 
-  function pads() {
+  function pads(kind) {
     var pr = plaque.getBoundingClientRect();
+    if (kind === 'photo' && !WIDE.matches) return { tl: [16, pr.bottom + 14], br: [70, sheet.getBoundingClientRect().height + 16] };
     if (WIDE.matches) { var sr = sheet.getBoundingClientRect(); return { tl: [sr.right + 28, 28], br: [150, 70] }; }
     return { tl: [26, pr.bottom + 62], br: [96, sheet.getBoundingClientRect().height + 100] };
   }
@@ -1587,8 +1588,8 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
     var pts = [[g.pos[0] - 6 / MLAT, g.pos[1] - 6 / MLON], [g.pos[0] + 6 / MLAT, g.pos[1] + 6 / MLON]];
     (g.stamps || []).concat(g.squares || [], g.trees || [], g.labels || []).forEach(function (s) { pts.push([s[0] + 2.5 / MLAT, s[1] - 2.5 / MLON], [s[0] - 2.5 / MLAT, s[1] + 2.5 / MLON]); });
     setTimeout(function () {
-      var p = pads();
-      map.flyToBounds(L.latLngBounds(pts), { paddingTopLeft: [p.tl[0], p.tl[1] - 40], paddingBottomRight: p.br, maxZoom: 20.75, duration: REDUCE ? 0 : .9 });
+      var p = pads('photo');
+      map.flyToBounds(L.latLngBounds(pts), { paddingTopLeft: p.tl, paddingBottomRight: p.br, maxZoom: 20.75, animate: !REDUCE, duration: .9 });
     }, 60);
   }
 
@@ -1856,10 +1857,30 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   }
   function declutter() {
     var ppm = Math.pow(2, map.getZoom()) / PPM0, obs = [];
+    var pls = GRAVES.map(function (g) { var el = graveMk[g.id].getElement(); return el && el.querySelector('.pl'); }).filter(Boolean);
+    // plaques that would overlap (only at overview zoom) are spread apart left to right, then the group is re-centred on its pins
+    pls.forEach(function (p) { p.style.left = ''; });
+    var items = pls.map(function (p) { return { p: p, r: p.getBoundingClientRect(), dx: 0, hit: false }; }).sort(function (x, y) { return x.r.left - y.r.left; });
+    for (var a = 1; a < items.length; a++) for (var b = 0; b < a; b++) {
+      var A = items[b], B = items[a];
+      var ox = Math.min(A.r.right + A.dx, B.r.right + B.dx) - Math.max(A.r.left + A.dx, B.r.left + B.dx), oy = Math.min(A.r.bottom, B.r.bottom) - Math.max(A.r.top, B.r.top);
+      if (ox > -4 && oy > 0) { B.dx += ox + 4; A.hit = B.hit = true; }
+    }
+    var moved = items.filter(function (it) { return it.hit; }), spread = moved.reduce(function (m, it) { return Math.max(m, it.dx); }, 0);
+    moved.forEach(function (it) { it.p.style.left = (3 + it.dx - spread / 2) + 'px'; });
+    var cel = chapelMk.getElement();
+    if (cel) {
+      cel.style.visibility = 'visible';
+      var cr = [cel.querySelector('.ic'), cel.querySelector('.lb')].map(function (x) { return x.getBoundingClientRect(); }), blocked = false;
+      var others = pls.map(function (p) { return p.getBoundingClientRect(); });
+      Object.keys(gateMk).forEach(function (k) { var el = gateMk[k].getElement(); if (el) { others.push(el.querySelector('.ic').getBoundingClientRect(), el.querySelector('.lb').getBoundingClientRect()); } });
+      cr.forEach(function (r) { others.forEach(function (o) { if (!(r.right < o.left || r.left > o.right || r.bottom < o.top || r.top > o.bottom)) blocked = true; }); });
+      cel.style.visibility = blocked ? 'hidden' : 'visible';
+    }
     function add(el) { if (el) { var r = el.getBoundingClientRect(); if (r.width && r.height) obs.push(r); } }
     GRAVES.forEach(function (g) { var el = graveMk[g.id].getElement(); add(el && el.querySelector('.pl')); });
     Object.keys(gateMk).forEach(function (k) { var el = gateMk[k].getElement(); if (el) { add(el.querySelector('.ic')); add(el.querySelector('.lb')); } });
-    if (chapelMk.getElement()) { add(chapelMk.getElement().querySelector('.ic')); add(chapelMk.getElement().querySelector('.lb')); }
+    if (cel && cel.style.visibility !== 'hidden') { add(cel.querySelector('.ic')); add(cel.querySelector('.lb')); }
     [ctrl, scaleEl, plaque].forEach(add);
     PAINTED.forEach(function (l) {
       var el = l.mk.getElement(), d = el && el.firstChild; if (!d) return;
@@ -1869,7 +1890,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       d.style.visibility = hit ? 'hidden' : 'visible';
     });
   }
-  map.on('zoomend moveend', function () { setTimeout(declutter, 0); });
+  // measure only once the moved markers have been painted
+  var dcTimer = null;
+  map.on('zoomend moveend', function () { clearTimeout(dcTimer); dcTimer = setTimeout(function () { requestAnimationFrame(function () { requestAnimationFrame(declutter); }); }, 60); });
   map.on('zoom zoomend', paintScale);
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
   map.fitBounds(CEM_B, { animate: false });
